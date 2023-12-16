@@ -1,0 +1,215 @@
+---
+title: "Analysis"
+author: "Cheuk Hei Yu (Hayden)"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+source("./dataset.R")
+```
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+load("../data/all.RData")
+load("../data/all_std.RData")
+```
+
+```{r}
+hist(crash_std$tot_crash_count)
+```
+
+```{r}
+count = data.frame(y = c(length(crash_std$tot_crash_count[which(crash_std$tot_crash_count==0)]),
+                        length(crash_std$tot_crash_count[which(crash_std$tot_crash_count>=1 & crash_std$tot_crash_count<=10)]),
+                        length(crash_std$tot_crash_count[which(crash_std$tot_crash_count>=11 & crash_std$tot_crash_count<=20)]),
+                        length(crash_std$tot_crash_count[which(crash_std$tot_crash_count>=21 & crash_std$tot_crash_count<=30)]),
+                        length(crash_std$tot_crash_count[which(crash_std$tot_crash_count>=31 & crash_std$tot_crash_count<=40)]),
+                        length(crash_std$tot_crash_count[which(crash_std$tot_crash_count>=41 & crash_std$tot_crash_count<=50)]),
+                        length(crash_std$tot_crash_count[which(crash_std$tot_crash_count>=51)])),
+                  x = c("0", "1-10", "11-20", "21-30", "31-40", "41-50", "50+")
+                  )
+
+count$perc = sprintf("%0.2f%s", round(count$y * 100 / sum(count$y), digits=2), "%")
+count$y <- count$y / 10000
+
+count
+sum(count$y)
+
+```
+
+```{r}
+ggplot(count, aes(x=x, y=y)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=perc), nudge_y = 3) + 
+  labs(x = "Number of Crashes", y = "Occurrences (in 10000)")
+```
+
+```{r}
+x <- c(0:5)
+y <- rep(0, 6)
+
+for (i in 0:5) {
+  y[i + 1] <- length(crash$approaches[which(crash$approaches == i)]) / 10000
+}
+
+plot(x, y, ylim=c(-5, 45), xlab="Number of Approaches", ylab="Occurrence (in 10000)")
+```
+
+```{r}
+# log crash count
+t = log10(crash$tot_crash_count)
+t[which(t == -Inf)] = -0.5
+
+boxplot(t[which(crash$approaches == 0)],
+        t[which(crash$approaches == 1)],
+        t[which(crash$approaches == 2)],
+        t[which(crash$approaches == 3)],
+        t[which(crash$approaches == 4)],
+        t[which(crash$approaches == 5)],
+        names=c(0:5),
+        col="blue",
+        border="red",
+        xlab="Number of Approaches",
+        ylab="Crash Count (in log-scale)")
+```
+
+```{r}
+si <- subset(crash, select=c(tot_crash_count, signalized_ind))
+```
+
+```{r}
+x <- c(0:1)
+y <- rep(0, 2)
+
+for (i in 0:1) {
+  y[i + 1] <- length(si$signalized_ind[which(si$signalized_ind == i)])
+}
+
+y
+```
+
+```{r}
+boxplot(t[which(si$signalized_ind == 0)],
+        t[which(si$signalized_ind == 1)],
+        names=c("0 (Entries: 691610)", "1 (Entries: 15316)"),
+        col="blue",
+        border="red",
+        xlab="Signalized Intersections",
+        ylab="Crash Count (in log-scale)")
+```
+
+```{r}
+# AADT
+u = log10(crash$aadt_lane_major + crash$aadt_lane_minor)
+u[which(u == -Inf)] = -0.5
+
+boxplot(u[which(si$signalized_ind == 0)],
+        u[which(si$signalized_ind == 1)],
+        names=c("0 (Entries: 691610)", "1 (Entries: 15316)"),
+        col="blue",
+        border="red",
+        xlab="Signalized Intersections",
+        ylab="Annual Average Daily Traffic (in log-scale)")
+```
+
+
+# Arterial
+```{r}
+si <- crash[crash$f_arterial_major > 0 | crash$f_arterial_minor > 0, ]
+si <- subset(si, select=c(tot_crash_count, signalized_ind))
+```
+
+```{r}
+x <- c(0:1)
+y <- rep(0, 2)
+
+for (i in 0:1) {
+  y[i + 1] <- length(si$signalized_ind[which(si$signalized_ind == i)])
+}
+
+y
+```
+
+```{r}
+t <- log10(si$tot_crash_count)
+t[which(t == -Inf)] = -0.5
+
+boxplot(t[which(si$signalized_ind == 0)],
+        t[which(si$signalized_ind == 1)],
+        names=c("0 (Entries: 90870)", "1 (Entries: 13543)"),
+        col="blue",
+        border="red",
+        xlab="Signalized Intersections",
+        ylab="Crash Count (in log-scale)")
+```
+
+
+# Collector
+```{r}
+si <- crash[crash$f_collector_major > 0 | crash$f_collector_minor > 0, ]
+si <- subset(si, select=c(tot_crash_count, signalized_ind))
+```
+
+```{r}
+x <- c(0:1)
+y <- rep(0, 2)
+
+for (i in 0:1) {
+  y[i + 1] <- length(si$signalized_ind[which(si$signalized_ind == i)])
+}
+
+y
+```
+
+```{r}
+t <- log10(si$tot_crash_count)
+t[which(t == -Inf)] = -0.5
+
+boxplot(t[which(si$signalized_ind == 0)],
+        t[which(si$signalized_ind == 1)],
+        names=c("0 (Entries: 141035)", "1 (Entries: 7014)"),
+        col="blue",
+        border="red",
+        xlab="Signalized Intersections",
+        ylab="Crash Count (in log-scale)")
+```
+
+
+# Local
+```{r}
+si <- crash[crash$f_local_major > 0 | crash$f_local_minor > 0, ]
+si <- subset(si, select=c(tot_crash_count, signalized_ind))
+```
+
+```{r}
+x <- c(0:1)
+y <- rep(0, 2)
+
+for (i in 0:1) {
+  y[i + 1] <- length(si$signalized_ind[which(si$signalized_ind == i)])
+}
+
+y
+```
+
+```{r}
+t <- log10(si$tot_crash_count)
+t[which(t == -Inf)] = -0.5
+
+boxplot(t[which(si$signalized_ind == 0)],
+        t[which(si$signalized_ind == 1)],
+        names=c("0 (Entries: 661996)", "1 (Entries: 4367)"),
+        col="blue",
+        border="red",
+        xlab="Signalized Intersections",
+        ylab="Crash Count (in log-scale)")
+```
+
+
+```{r}
+sum(si$tot_crash_count == 2)
+```

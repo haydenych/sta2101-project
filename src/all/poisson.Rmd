@@ -1,0 +1,106 @@
+---
+title: "Poisson Regression"
+author: "Cheuk Hei Yu (Hayden)"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+load_model <- TRUE
+```
+
+```{r}
+load("../../data/crash_std.RData")
+
+if (load_model) {
+  load("../../output/all/poisson.RData")
+}
+```
+
+```{r}
+if (!load_model) {
+  start <- Sys.time()
+  model <- glm(tot_crash_count~., data=train_std, family=poisson)
+  end <- Sys.time()
+  
+  time_model <- end - start
+}
+
+time_model
+```
+
+```{r}
+summary(model)
+```
+
+```{r}
+mae_train <- mean(abs(model$fitted.values - train_std$tot_crash_count))
+rmse_train <- sqrt(mean((model$fitted.values - train_std$tot_crash_count)^2))
+
+y_pred <- predict(model, val_std, type="response")
+mae_val <- mean(abs(y_pred - val_std$tot_crash_count))
+rmse_val <- sqrt(mean((y_pred - val_std$tot_crash_count) ^ 2))
+
+aic <- AIC(model)
+```
+
+```{r}
+mae_train
+mae_val
+```
+
+```{r}
+rmse_train
+rmse_val
+```
+
+```{r}
+aic
+```
+
+# Model Step
+
+```{r}
+if (!load_model) {
+  start <- Sys.time()
+  model_step <- step(model)
+  end <- Sys.time()
+  
+  time_model_step <- end - start
+}
+
+time_model_step
+```
+
+```{r}
+summary(model_step)
+```
+
+```{r}
+mae_train <- mean(abs(model_step$fitted.values - train_std$tot_crash_count))
+rmse_train <- sqrt(mean((model_step$fitted.values - train_std$tot_crash_count)^2))
+
+y_pred <- predict(model_step, val_std, type="response")
+mae_val <- mean(abs(y_pred - val_std$tot_crash_count))
+rmse_val <- sqrt(mean((y_pred - val_std$tot_crash_count) ^ 2))
+
+aic <- AIC(model_step)
+```
+
+```{r}
+mae_train
+mae_val
+```
+
+```{r}
+rmse_train
+rmse_val
+```
+
+```{r}
+aic
+```
+
+```{r}
+save(model, model_step, time_model, time_model_step, file="../../output/all/poisson.RData")
+```

@@ -1,0 +1,128 @@
+---
+title: "XGBoost"
+author: "Cheuk Hei Yu (Hayden)"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+load_model <- TRUE
+```
+
+```{r}
+library(xgboost)
+```
+
+```{r}
+load("../../data/folds_std.RData")
+
+if (load_model) {
+  load("../../output/all/xgboost.RData")
+}
+```
+
+```{r}
+k <- 5
+cv <- list(folds$Fold1, folds$Fold2, folds$Fold3, folds$Fold4, folds$Fold5)
+
+if (!load_model) {
+  start <- Sys.time()
+  
+  models <- vector(mode='list', length=k)
+  for (i in 1:k) {
+    train <- train_val_std[!train_val_std$id %in% cv[[i]], ]
+    val <- train_val_std[train_val_std$id %in% cv[[i]], ]
+    
+    X_train = as.matrix(subset(train, select=c(-tot_crash_count, -id)))
+    y_train = as.matrix(subset(train, select=c(tot_crash_count)))
+    
+    X_val = as.matrix(subset(val, select=c(-tot_crash_count, -id)))
+    y_val = as.matrix(subset(val, select=c(tot_crash_count)))
+    
+    xgb_train = xgb.DMatrix(data = X_train, label = y_train)
+    xgb_val = xgb.DMatrix(data = X_val, label = y_val)
+    
+    models[[i]] <- xgb.train(data = xgb_train, 
+                             max_depth=5, 
+                             nthread=24, 
+                             nrounds=100,
+                             min_child_weight=10,
+                             gamma=0.3,
+                             alpha=0,
+                             lambda=1,
+                             watchlist=list(train=xgb_train, val=xgb_val),
+                             subsample=0.8,
+                             colsample_bytree=0.8,
+                             eta=0.05, 
+                             verbose=2)
+  }
+  
+  end <- Sys.time()
+  
+  time_model <- end - start
+}
+
+time_model
+```
+
+```{r}
+models
+```
+
+```{r}
+mae_trains <- vector(mode='list', length=k)
+mae_vals <- vector(mode='list', length=k)
+rmse_trains <- vector(mode='list', length=k)
+rmse_vals <- vector(mode='list', length=k)
+
+for (i in 1:k) {
+  train <- train_val_std[!train_val_std$id %in% cv[[i]], ]
+  val <- train_val_std[train_val_std$id %in% cv[[i]], ]
+  
+  X_train = as.matrix(subset(train, select=c(-tot_crash_count, -id)))
+  y_train = as.matrix(subset(train, select=c(tot_crash_count)))
+  
+  X_val = as.matrix(subset(val, select=c(-tot_crash_count, -id)))
+  y_val = as.matrix(subset(val, select=c(tot_crash_count)))
+  
+  xgb_train = xgb.DMatrix(data = X_train, label = y_train)
+  xgb_val = xgb.DMatrix(data = X_val, label = y_val)
+  
+  y_pred_train <- predict(models[[i]], xgb_train)
+  mae_trains[[i]] <- mean(abs(y_pred_train - y_train))
+  rmse_trains[[i]] <- sqrt(mean((y_pred_train - y_train) ^ 2))
+  
+  y_pred_val <- predict(models[[i]], xgb_val)
+  mae_vals[[i]] <- mean(abs(y_pred_val - y_val))
+  rmse_vals[[i]] <- sqrt(mean((y_pred_val - y_val) ^ 2))
+}
+
+mae_trains <- unlist(mae_trains)
+mae_vals <- unlist(mae_vals)
+rmse_trains <- unlist(rmse_trains)
+rmse_vals <- unlist(rmse_vals)
+```
+
+```{r}
+rmse_vals
+```
+
+```{r}
+mean(mae_trains)
+mean(mae_vals)
+```
+
+```{r}
+mean(rmse_trains)
+mean(rmse_vals)
+```
+
+```{r}
+plot(models[[1]]$evaluation_log$train_rmse, type="l", col="red", xlab="Iterations", ylab="RMSE")
+lines(models[[1]]$evaluation_log$val_rmse, col="green")
+legend(80, 14.5, legend=c("Train", "Val"), col=c("red", "green"), lty=1, cex=0.8)
+```
+
+```{r}
+save(models, time_model, file="../../output/all/xgboost.RData")
+```

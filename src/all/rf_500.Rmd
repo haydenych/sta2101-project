@@ -1,0 +1,89 @@
+---
+title: "Random Forest (500)"
+author: "Cheuk Hei Yu (Hayden)"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+load_model <- TRUE
+```
+
+```{r}
+library(ranger)
+```
+
+```{r}
+load("../../data/folds_std.RData")
+
+if (load_model) {
+  load("../../output/all/rf_500.RData")
+}
+```
+
+```{r}
+k <- 5
+cv <- list(folds$Fold1, folds$Fold2, folds$Fold3, folds$Fold4, folds$Fold5)
+
+if (!load_model) {
+  start <- Sys.time()
+  
+  models <- vector(mode='list', length=k)
+  for (i in 1:k) {
+    train <- crash[!crash$id %in% cv[[i]], ]
+    val <- crash[crash$id %in% cv[[i]], ]
+    
+    models[[i]] <- ranger(tot_crash_count~.-id, data=train, num.trees=500, importance="impurity", verbose=T)
+  }
+  
+
+  end <- Sys.time()
+  
+  time_model <- end - start
+}
+
+time_model
+```
+
+```{r}
+models
+```
+
+```{r}
+mae_trains <- vector(mode='list', length=k)
+mae_vals <- vector(mode='list', length=k)
+rmse_trains <- vector(mode='list', length=k)
+rmse_vals <- vector(mode='list', length=k)
+
+for (i in 1:k) {
+  train <- crash[!crash$id %in% cv[[i]], ]
+  val <- crash[crash$id %in% cv[[i]], ]
+  
+  y_pred_train <- predict(models[[i]], train)
+  mae_trains[[i]] <- mean(abs(y_pred_train$predictions - train$tot_crash_count))
+  rmse_trains[[i]] <- sqrt(mean((y_pred_train$predictions - train$tot_crash_count) ^ 2))
+  
+  y_pred_val <- predict(models[[i]], val)
+  mae_vals[[i]] <- mean(abs(y_pred_val$predictions - val$tot_crash_count))
+  rmse_vals[[i]] <- sqrt(mean((y_pred_val$predictions - val$tot_crash_count) ^ 2))
+}
+
+mae_trains <- unlist(mae_trains)
+mae_vals <- unlist(mae_vals)
+rmse_trains <- unlist(rmse_trains)
+rmse_vals <- unlist(rmse_vals)
+```
+
+```{r}
+mean(mae_trains)
+mean(mae_vals)
+```
+
+```{r}
+mean(rmse_trains)
+mean(rmse_vals)
+```
+
+```{r}
+save(models, time_model, file="../../output/all/rf_500.RData")
+```

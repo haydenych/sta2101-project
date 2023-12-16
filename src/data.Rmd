@@ -1,0 +1,62 @@
+---
+title: "Data"
+author: "Cheuk Hei Yu (Hayden)"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+source("./dataset.R")
+```
+
+```{r}
+get_all()
+```
+
+```{r}
+get_all_std()
+```
+
+```{r}
+get_splits_std()
+```
+
+```{r}
+get_cv_std()
+```
+
+```{r}
+load("../data/crash_std.RData")
+```
+
+```{r}
+test_std
+```
+
+```{r}
+load("../data/folds_std.RData")
+```
+
+```{r}
+test_std
+```
+
+```{r}
+train_val_std
+```
+
+```{r}
+slice_arterial(train_val_std)
+```
+
+```{r}
+load("../data/all.RData")
+```
+
+```{r}
+summary(crash)
+```
+
+```{r}
+round(sapply(crash, sd), 2)
+```

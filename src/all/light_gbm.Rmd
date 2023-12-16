@@ -1,0 +1,182 @@
+---
+title: "Light GBM"
+author: "Cheuk Hei Yu (Hayden)"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+load_model <- TRUE
+```
+
+```{r}
+library(lightgbm)
+```
+
+```{r}
+load("../../data/folds_std.RData")
+
+if (load_model) {
+  load("../../output/all/light_gbm.RData")
+}
+```
+
+```{r}
+k <- 5
+cv <- list(folds$Fold1, folds$Fold2, folds$Fold3, folds$Fold4, folds$Fold5)
+
+if (!load_model) {
+  start <- Sys.time()
+  
+  models <- vector(mode='list', length=k)
+  for (i in 1:k) {
+    train <- train_val_std[!train_val_std$id %in% cv[[i]], ]
+    val <- train_val_std[train_val_std$id %in% cv[[i]], ]
+    
+    X_train = as.matrix(subset(train, select=c(-tot_crash_count, -id)))
+    y_train = as.matrix(subset(train, select=c(tot_crash_count)))
+    
+    X_val = as.matrix(subset(val, select=c(-tot_crash_count, -id)))
+    y_val = as.matrix(subset(val, select=c(tot_crash_count)))
+    
+    lgb_train = lgb.Dataset(data = X_train, label = y_train)
+    lgb_val = lgb.Dataset(data = X_val, label = y_val)
+  
+    models[[i]] <- lgb.train(
+      data=lgb_train,
+      params=list(
+        num_iterations=100,
+        num_leaves=31,
+        min_data_in_leaf=200,
+        learning_rate=0.05,
+        objective="regression",
+        nthread=24,
+        verbosity=0
+      )
+    )
+  }
+  
+  end <- Sys.time()
+  
+  time_model <- end - start
+}
+
+time_model
+```
+
+```{r}
+models
+```
+
+```{r}
+mae_trains <- vector(mode='list', length=k)
+mae_vals <- vector(mode='list', length=k)
+rmse_trains <- vector(mode='list', length=k)
+rmse_vals <- vector(mode='list', length=k)
+
+for (i in 1:k) {
+  train <- train_val_std[!train_val_std$id %in% cv[[i]], ]
+  val <- train_val_std[train_val_std$id %in% cv[[i]], ]
+  
+  X_train = as.matrix(subset(train, select=c(-tot_crash_count, -id)))
+  y_train = as.matrix(subset(train, select=c(tot_crash_count)))
+  
+  X_val = as.matrix(subset(val, select=c(-tot_crash_count, -id)))
+  y_val = as.matrix(subset(val, select=c(tot_crash_count)))
+  
+  y_pred_train <- predict(models[[i]], X_train)
+  mae_trains[[i]] <- mean(abs(y_pred_train - y_train))
+  rmse_trains[[i]] <- sqrt(mean((y_pred_train - y_train) ^ 2))
+  
+  y_pred_val <- predict(models[[i]], X_val)
+  mae_vals[[i]] <- mean(abs(y_pred_val - y_val))
+  rmse_vals[[i]] <- sqrt(mean((y_pred_val - y_val) ^ 2))
+}
+
+mae_trains <- unlist(mae_trains)
+mae_vals <- unlist(mae_vals)
+rmse_trains <- unlist(rmse_trains)
+rmse_vals <- unlist(rmse_vals)
+```
+
+```{r}
+rmse_vals
+```
+
+```{r}
+mean(mae_trains)
+mean(mae_vals)
+```
+
+```{r}
+mean(rmse_trains)
+mean(rmse_vals)
+```
+
+```{r}
+save(models, time_model, file="../../output/all/light_gbm.RData")
+```
+
+# Train the final model
+```{r}
+load("../../data/crash_std.RData")
+```
+
+```{r}
+X_train = as.matrix(subset(train_std, select=c(-tot_crash_count)))
+y_train = as.matrix(subset(train_std, select=c(tot_crash_count)))
+
+lgb_train = lgb.Dataset(data = X_train, label = y_train)
+
+model_final <- lgb.train(
+  data=lgb_train,
+  params=list(
+    num_iterations=100,
+    num_leaves=31,
+    min_data_in_leaf=200,
+    learning_rate=0.05,
+    objective="regression",
+    nthread=24,
+    verbosity=0
+  )
+)
+```
+
+```{r}
+X_test = as.matrix(subset(test_std, select=c(-tot_crash_count)))
+y_test = as.matrix(subset(test_std, select=c(tot_crash_count)))
+
+y_pred_test <- predict(model_final, X_test)
+mae_test <- mean(abs(y_pred_test - y_test))
+rmse_test <- sqrt(mean((y_pred_test - y_test) ^ 2))
+```
+
+```{r}
+mae_test
+rmse_test
+```
+
+```{r}
+save(model_final, file="../../output/all/light_gbm_final.RData")
+```
+
+# Feature Importance
+```{r}
+library(grid)
+library(gridBase)
+```
+
+```{r}
+importance <- lgb.importance(models[[1]], percentage = TRUE)
+```
+
+```{r}
+bp <- barplot(importance$Gain)
+
+vps <- baseViewports()
+pushViewport(vps$inner, vps$figure, vps$plot)
+
+grid.text(importance$Feature,
+    x = unit(bp, "native"), y=unit(-1, "lines"),
+    just="right", rot=40, gp=gpar(fontsize=8))
+```

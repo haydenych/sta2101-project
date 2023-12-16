@@ -1,0 +1,67 @@
+---
+title: "Zero Inflated Negative Binomial Regression"
+author: "Cheuk Hei Yu (Hayden)"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+load_model <- TRUE
+```
+
+```{r}
+library(pscl)
+```
+
+```{r}
+load("../../data/crash_std.RData")
+
+if (load_model) {
+  load("../../output/all/zi_nb.RData")
+}
+```
+
+```{r}
+if (!load_model) {
+  start <- Sys.time()
+  model <- zeroinfl(tot_crash_count~., data=train_std, dist="negbin")
+  end <- Sys.time()
+  
+  time_model <- end - start
+}
+
+time_model
+```
+
+```{r}
+summary(model)
+```
+
+```{r}
+mae_train <- mean(abs(model$fitted.values - train_std$tot_crash_count))
+rmse_train <- sqrt(mean((model$fitted.values - train_std$tot_crash_count)^2))
+
+y_pred <- predict(model, val_std, type="response")
+mae_val <- mean(abs(y_pred - val_std$tot_crash_count))
+rmse_val <- sqrt(mean((y_pred - val_std$tot_crash_count) ^ 2))
+
+aic <- AIC(model)
+```
+
+```{r}
+mae_train
+mae_val
+```
+
+```{r}
+rmse_train
+rmse_val
+```
+
+```{r}
+aic
+```
+
+```{r}
+save(model, time_model, file="../../output/all/zi_nb.RData")
+```
